@@ -52,6 +52,13 @@
   .badge{display:inline-block;padding:2px 12px;border-radius:99px;font-size:.82rem;font-weight:700;color:#06202e}
   .좋음{background:var(--c-좋음)}.보통{background:var(--c-보통)}.나쁨{background:var(--c-나쁨)}.매우나쁨{background:var(--c-매우나쁨);color:#fff}
 
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+  .tab{padding:8px 16px;border-radius:99px;border:1px solid var(--glass-b);background:var(--glass);color:var(--ink);
+    font:inherit;font-weight:700;cursor:pointer;backdrop-filter:blur(8px);transition:.2s}
+  .tab:hover{filter:brightness(1.2)}
+  .tab.on{background:linear-gradient(90deg,#7dd3fc,#a7f3d0);color:#06202e;border-color:transparent}
+  .tab:focus-visible{outline:3px solid #fde68a;outline-offset:2px}
+
   /* 측정소 카드 */
   .toolbar{display:flex;justify-content:space-between;align-items:center;margin:8px 2px 12px}
   .toolbar h2{font-size:1.15rem}
@@ -98,6 +105,10 @@
   <div id="err"></div>
   <section class="glass hero" id="hero"><div class="skeleton" style="width:100%"></div></section>
 
+  <div class="tabs" role="tablist" aria-label="데이터 종류">
+    <button class="tab on" data-src="airkorea" role="tab">📡 실제 데이터</button>
+    <button class="tab" data-src="demo" role="tab">🧪 연습 데이터 (예측 체험)</button>
+  </div>
   <div class="toolbar"><h2>측정소별 현황</h2><small>API: <span id="api"></span> · <span id="upd"></span></small></div>
   <section class="grid" id="grid"></section>
 
@@ -125,9 +136,20 @@ async function get(path) {
   return r.json();
 }
 
+let SRC = "airkorea";  // airkorea(실제) | demo(연습: 72시간치라 예측 체험 가능)
+
+document.querySelector(".tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-src]");
+  if (!b) return;
+  SRC = b.dataset.src;
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t === b));
+  $("pred").hidden = true;
+  load();
+});
+
 async function load() {
   try {
-    const [s, rows] = await Promise.all([get("/air/summary"), get("/air/latest")]);
+    const [s, rows] = await Promise.all([get("/air/summary?source=" + SRC), get("/air/latest?source=" + SRC)]);
     $("err").innerHTML = "";
     const g = s.avg_pm10_grade;
     $("hero").innerHTML = `
@@ -177,7 +199,7 @@ $("grid").addEventListener("click", async (e) => {
   const box = $("pred"); box.hidden = false; box.innerHTML = '<div class="skeleton"></div>';
   box.scrollIntoView({behavior: "smooth", block: "center"});
   try {
-    const p = await get("/air/predict?station=" + encodeURIComponent(st));
+    const p = await get("/air/predict?source=" + SRC + "&station=" + encodeURIComponent(st));
     box.innerHTML = p.ready
       ? `<h3>🔮 ${esc(p.station)} 1시간 뒤 예측</h3>
          <div class="num">${p.next_pm10} <small style="font-size:1rem">㎍/㎥</small> ${badge(p.next_grade)}</div>
